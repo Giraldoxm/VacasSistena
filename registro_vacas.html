@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Registro de Vacas</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .formulario {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .formulario input, 
+        .formulario textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .lista-vacas {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        .tarjeta-vaca {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            padding: 15px;
+        }
+        .tarjeta-vaca img {
+            max-width: 100%;
+            height: 180px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .boton {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .boton-eliminar {
+            background-color: #f44336;
+        }
+    </style>
+
+    
+</head>
+<body>
+    <h1>Sistema de Registro de Vacas</h1>
+    
+    <div class="formulario">
+        <input type="text" id="nombreVaca" placeholder="Nombre de la vaca">
+        <input type="text" id="razaVaca" placeholder="Raza de la vaca">
+        <textarea id="caracteristicasVaca" placeholder="Características de la vaca"></textarea>
+        <input type="file" id="fotoVaca" accept="image/*">
+        <button onclick="agregarVaca()" class="boton">Registrar Vaca</button>
+    </div>
+
+    <div id="listaVacas" class="lista-vacas">
+        <!-- Aquí se mostrarán las vacas registradas -->
+    </div>
+
+    <script>
+        // Array para almacenar las vacas
+        let vacas = JSON.parse(localStorage.getItem('vacas')) || [];
+
+        // Función para guardar vacas en localStorage
+        function guardarVacas() {
+            localStorage.setItem('vacas', JSON.stringify(vacas));
+            mostrarVacas();
+        }
+
+        // Función para agregar una nueva vaca
+        function agregarVaca() {
+            // Obtener valores de los campos
+            const nombre = document.getElementById('nombreVaca').value;
+            const raza = document.getElementById('razaVaca').value;
+            const caracteristicas = document.getElementById('caracteristicasVaca').value;
+            const fotoInput = document.getElementById('fotoVaca');
+
+            // Validar campos obligatorios
+            if (!nombre || !raza || !caracteristicas) {
+                alert('Por favor, completa todos los campos');
+                return;
+            }
+
+            // Lector de archivos para la foto
+            const reader = new FileReader();
+            reader.onloadend = function() {
+                // Crear objeto vaca
+                const vaca = {
+                    id: Date.now().toString(),
+                    nombre: nombre,
+                    raza: raza,
+                    caracteristicas: caracteristicas,
+                    foto: reader.result || '/api/placeholder/200/200'
+                };
+
+                // Agregar vaca al array
+                vacas.push(vaca);
+
+                // Guardar en localStorage y mostrar
+                guardarVacas();
+
+                // Limpiar formulario
+                document.getElementById('nombreVaca').value = '';
+                document.getElementById('razaVaca').value = '';
+                document.getElementById('caracteristicasVaca').value = '';
+                document.getElementById('fotoVaca').value = '';
+            }
+
+            // Leer foto si existe
+            if (fotoInput.files[0]) {
+                reader.readAsDataURL(fotoInput.files[0]);
+            } else {
+                // Si no hay foto, crear vaca con foto por defecto
+                const vaca = {
+                    id: Date.now().toString(),
+                    nombre: nombre,
+                    raza: raza,
+                    caracteristicas: caracteristicas,
+                    foto: '/api/placeholder/200/200'
+                };
+
+                vacas.push(vaca);
+                guardarVacas();
+            }
+        }
+
+        // Función para eliminar una vaca
+        function eliminarVaca(id) {
+            vacas = vacas.filter(vaca => vaca.id !== id);
+            guardarVacas();
+        }
+
+        // Función para mostrar las vacas
+        function mostrarVacas() {
+            const listaVacas = document.getElementById('listaVacas');
+            listaVacas.innerHTML = ''; // Limpiar lista anterior
+
+            vacas.forEach(vaca => {
+                const divVaca = document.createElement('div');
+                divVaca.className = 'tarjeta-vaca';
+                divVaca.innerHTML = `
+                    <img src="${vaca.foto}" alt="${vaca.nombre}">
+                    <h3>${vaca.nombre}</h3>
+                    <p><strong>Raza:</strong> ${vaca.raza}</p>
+                    <p><strong>Características:</strong> ${vaca.caracteristicas}</p>
+                    <button onclick="eliminarVaca('${vaca.id}')" class="boton boton-eliminar">Eliminar</button>
+                `;
+                listaVacas.appendChild(divVaca);
+            });
+        }
+
+        // Mostrar vacas guardadas al cargar la página
+        mostrarVacas();
+    </script>
+</body>
+</html>
