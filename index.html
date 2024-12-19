@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Registro de Vacas con Imgur</title>
+    <title>Registro de Vacas con Firebase</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -61,6 +61,10 @@
             background-color: #f44336;
         }
     </style>
+    <!-- Importar Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage.js"></script>
 </head>
 <body>
     <h1>Sistema de Registro de Vacas</h1>
@@ -78,8 +82,23 @@
     </div>
 
     <script>
-        const imgurClientID = '503ac86b60613e8'; // Reemplaza con tu Client ID de Imgur
-        const vacas = [];
+        // Configuración de Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyDcF0u3AytUDoXSAuFoPBaeMZi9MYdW_UA",
+            authDomain: "sistemaguardadovacas.firebaseapp.com",
+            databaseURL: "https://sistemaguardadovacas-default-rtdb.firebaseio.com",
+            projectId: "sistemaguardadovacas",
+            storageBucket: "sistemaguardadovacas.appspot.com",
+            messagingSenderId: "295950303202",
+            appId: "1:295950303202:web:9187ff3c66f01b33df83bb",
+            measurementId: "G-3Q18924145"
+        };
+
+        // Inicializar Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const storage = firebase.storage();
+        const vacasRef = database.ref('vacas');
 
         // Función para agregar una nueva vaca
         async function agregarVaca() {
@@ -88,15 +107,22 @@
             const caracteristicas = document.getElementById('caracteristicasVaca').value;
             const fotoInput = document.getElementById('fotoVaca');
 
-            if (!nombre || !raza || !caracteristicas || !fotoInput.files[0]) {
+            // Validar campos obligatorios
+            if (!nombre || !raza || !caracteristicas) {
                 alert('Por favor, completa todos los campos');
                 return;
             }
 
-            const fotoFile = fotoInput.files[0];
-
             try {
-                const fotoURL = await subirImagenImgur(fotoFile);
+                let fotoURL = '';
+
+                // Subir foto si existe
+                if (fotoInput.files[0]) {
+                    const fotoFile = fotoInput.files[0];
+                    const fotoRef = storage.ref(`fotos_vacas/${Date.now()}_${fotoFile.name}`);
+                    const fotoSubida = await fotoRef.put(fotoFile);
+                    fotoURL = await fotoSubida.ref.getDownloadURL();
+                }
 
                 // Crear objeto vaca
                 const vaca = {
@@ -106,8 +132,9 @@
                     foto: fotoURL
                 };
 
-                // Guardar vaca en el array (simula la base de datos)
-                vacas.push(vaca);
+                // Guardar en Firebase Realtime Database
+                const nuevaVacaRef = vacasRef.push();
+                await nuevaVacaRef.set(vaca);
 
                 // Limpiar formulario
                 document.getElementById('nombreVaca').value = '';
@@ -115,53 +142,43 @@
                 document.getElementById('caracteristicasVaca').value = '';
                 document.getElementById('fotoVaca').value = '';
 
-                // Actualizar la lista de vacas
+                // Mostrar vacas actualizadas
                 mostrarVacas();
-
             } catch (error) {
-                console.error('Error al subir imagen a Imgur:', error);
+                console.error('Error al agregar vaca:', error);
                 alert('Hubo un problema al registrar la vaca');
-            }
-        }
-
-        // Función para subir la imagen a Imgur
-        async function subirImagenImgur(file) {
-            const formData = new FormData();
-            formData.append('image', file);
-
-            const response = await fetch('https://api.imgur.com/3/image', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Client-ID ${imgurClientID}`
-                },
-                body: formData
-            });
-
-            const data = await response.json();
-            if (data.success) {
-                return data.data.link; // URL de la imagen subida
-            } else {
-                throw new Error('Error al subir la imagen');
             }
         }
 
         // Función para mostrar las vacas
         function mostrarVacas() {
             const listaVacas = document.getElementById('listaVacas');
-            listaVacas.innerHTML = '';
+            listaVacas.innerHTML = ''; // Limpiar lista anterior
 
-            vacas.forEach(vaca => {
-                const divVaca = document.createElement('div');
-                divVaca.className = 'tarjeta-vaca';
-                divVaca.innerHTML = `
-                    <img src="${vaca.foto}" alt="${vaca.nombre}">
-                    <h3>${vaca.nombre}</h3>
-                    <p><strong>Raza:</strong> ${vaca.raza}</p>
-                    <p><strong>Características:</strong> ${vaca.caracteristicas}</p>
-                `;
-                listaVacas.appendChild(divVaca);
+            vacasRef.on('value', (snapshot) => {
+                const vacas = snapshot.val();
+                listaVacas.innerHTML = ''; // Limpiar lista anterior
+
+                if (vacas) {
+                    Object.keys(vacas).forEach(id => {
+                        const vaca = vacas[id];
+                        const divVaca = document.createElement('div');
+                        divVaca.className = 'tarjeta-vaca';
+                        divVaca.innerHTML = `
+                            <img src="${vaca.foto}" alt="${vaca.nombre}">
+                            <h3>${vaca.nombre}</h3>
+                            <p><strong>Raza:</strong> ${vaca.raza}</p>
+                            <p><strong>Características:</strong> ${vaca.caracteristicas}</p>
+                            <button onclick="eliminarVaca('${id}')" class="boton boton-eliminar">Eliminar</button>
+                        `;
+                        listaVacas.appendChild(divVaca);
+                    });
+                }
             });
         }
+
+        // Mostrar vacas guardadas al cargar la página
+        mostrarVacas();
     </script>
 </body>
 </html>
