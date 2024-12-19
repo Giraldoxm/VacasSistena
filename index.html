@@ -1,12 +1,10 @@
-<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Registro de Vacas con Firebase</title>
+    <title>Registro de Vacas</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 800px;
             margin: 0 auto;
             padding: 20px;
             background-color: #f4f4f4;
@@ -18,57 +16,26 @@
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
             margin-bottom: 20px;
         }
-        .formulario input, 
-        .formulario textarea {
+        .formulario input, .formulario textarea {
             width: 100%;
             padding: 10px;
             margin-bottom: 10px;
             border: 1px solid #ddd;
             border-radius: 4px;
         }
-        .lista-vacas {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 20px;
-        }
-        .tarjeta-vaca {
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-            padding: 15px;
-        }
-        .tarjeta-vaca img {
-            max-width: 100%;
-            height: 180px;
-            object-fit: cover;
-            border-radius: 8px;
-            margin-bottom: 10px;
-        }
         .boton {
             background-color: #4CAF50;
             color: white;
-            border: none;
             padding: 10px 20px;
             text-align: center;
-            text-decoration: none;
-            display: inline-block;
             font-size: 16px;
-            margin: 4px 2px;
-            cursor: pointer;
             border-radius: 4px;
-        }
-        .boton-eliminar {
-            background-color: #f44336;
+            cursor: pointer;
         }
     </style>
-    <!-- Importar Firebase -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage.js"></script>
 </head>
 <body>
-    <h1>Sistema de Registro de Vacas</h1>
-    
+    <h1>Registro de Vacas</h1>
     <div class="formulario">
         <input type="text" id="nombreVaca" placeholder="Nombre de la vaca">
         <input type="text" id="razaVaca" placeholder="Raza de la vaca">
@@ -76,109 +43,42 @@
         <input type="file" id="fotoVaca" accept="image/*">
         <button onclick="agregarVaca()" class="boton">Registrar Vaca</button>
     </div>
-
-    <div id="listaVacas" class="lista-vacas">
-        <!-- Aquí se mostrarán las vacas registradas -->
-    </div>
+    <div id="listaVacas"></div>
 
     <script>
-        // Configuración de Firebase
-        const firebaseConfig = {
-            apiKey: "AIzaSyDcF0u3AytUDoXSAuFoPBaeMZi9MYdW_UA",
-            authDomain: "sistemaguardadovacas.firebaseapp.com",
-            databaseURL: "https://sistemaguardadovacas-default-rtdb.firebaseio.com",
-            projectId: "sistemaguardadovacas",
-            storageBucket: "sistemaguardadovacas.appspot.com",
-            messagingSenderId: "295950303202",
-            appId: "1:295950303202:web:9187ff3c66f01b33df83bb",
-            measurementId: "G-3Q18924145"
-        };
-
-        // Inicializar Firebase
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
-        const storage = firebase.storage();
-        const vacasRef = database.ref('vacas');
-
-        // Función para agregar una nueva vaca
         async function agregarVaca() {
             const nombre = document.getElementById('nombreVaca').value;
             const raza = document.getElementById('razaVaca').value;
             const caracteristicas = document.getElementById('caracteristicasVaca').value;
             const fotoInput = document.getElementById('fotoVaca');
 
-            // Validar campos obligatorios
             if (!nombre || !raza || !caracteristicas) {
                 alert('Por favor, completa todos los campos');
                 return;
             }
 
-            try {
-                let fotoURL = '';
-
-                // Subir foto si existe
-                if (fotoInput.files[0]) {
-                    const fotoFile = fotoInput.files[0];
-                    const fotoRef = storage.ref(`fotos_vacas/${Date.now()}_${fotoFile.name}`);
-                    const fotoSubida = await fotoRef.put(fotoFile);
-                    fotoURL = await fotoSubida.ref.getDownloadURL();
-                }
-
-                // Crear objeto vaca
-                const vaca = {
-                    nombre: nombre,
-                    raza: raza,
-                    caracteristicas: caracteristicas,
-                    foto: fotoURL
+            let fotoBase64 = '';
+            if (fotoInput.files[0]) {
+                const reader = new FileReader();
+                reader.onloadend = function () {
+                    fotoBase64 = reader.result.split(',')[1]; // Extraemos solo la parte de Base64
+                    // Enviar la vaca a tu servidor
+                    fetch('http://localhost:3000/addVaca', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            nombre,
+                            raza,
+                            caracteristicas,
+                            fotoBase64
+                        })
+                    }).then(res => res.json())
+                      .then(data => alert('Vaca registrada con éxito!'))
+                      .catch(err => console.error('Error al agregar la vaca', err));
                 };
-
-                // Guardar en Firebase Realtime Database
-                const nuevaVacaRef = vacasRef.push();
-                await nuevaVacaRef.set(vaca);
-
-                // Limpiar formulario
-                document.getElementById('nombreVaca').value = '';
-                document.getElementById('razaVaca').value = '';
-                document.getElementById('caracteristicasVaca').value = '';
-                document.getElementById('fotoVaca').value = '';
-
-                // Mostrar vacas actualizadas
-                mostrarVacas();
-            } catch (error) {
-                console.error('Error al agregar vaca:', error);
-                alert('Hubo un problema al registrar la vaca');
+                reader.readAsDataURL(fotoInput.files[0]);
             }
         }
-
-        // Función para mostrar las vacas
-        function mostrarVacas() {
-            const listaVacas = document.getElementById('listaVacas');
-            listaVacas.innerHTML = ''; // Limpiar lista anterior
-
-            vacasRef.on('value', (snapshot) => {
-                const vacas = snapshot.val();
-                listaVacas.innerHTML = ''; // Limpiar lista anterior
-
-                if (vacas) {
-                    Object.keys(vacas).forEach(id => {
-                        const vaca = vacas[id];
-                        const divVaca = document.createElement('div');
-                        divVaca.className = 'tarjeta-vaca';
-                        divVaca.innerHTML = `
-                            <img src="${vaca.foto}" alt="${vaca.nombre}">
-                            <h3>${vaca.nombre}</h3>
-                            <p><strong>Raza:</strong> ${vaca.raza}</p>
-                            <p><strong>Características:</strong> ${vaca.caracteristicas}</p>
-                            <button onclick="eliminarVaca('${id}')" class="boton boton-eliminar">Eliminar</button>
-                        `;
-                        listaVacas.appendChild(divVaca);
-                    });
-                }
-            });
-        }
-
-        // Mostrar vacas guardadas al cargar la página
-        mostrarVacas();
     </script>
 </body>
 </html>
